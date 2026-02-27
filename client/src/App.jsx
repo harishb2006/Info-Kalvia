@@ -1,13 +1,19 @@
 import React from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Dash from './Dash'
-import Form from './Form'
+import Login from './pages/Login'
+import Signup from './pages/Signup'
 
 const App = () => {
   return (
-    <div>
-      <Dash/>
-      <Form/>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/dash" element={<Dash />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
