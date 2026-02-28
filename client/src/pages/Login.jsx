@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import login_img from '../assets/Login_students.svg';
+import { authService } from '../services/api';
 
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
-        // In a real app, you would validate here.
-        navigate('/dash');
+        try {
+            const res = await authService.login({ email, password });
+            localStorage.setItem('token', res.token);
+            navigate('/dash');
+        } catch (err) {
+            alert(err.message);
+        }
     };
 
     return (

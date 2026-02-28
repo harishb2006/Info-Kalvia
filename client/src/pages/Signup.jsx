@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import login_img from '../assets/Login_students.svg';
+import { authService } from '../services/api';
 
 export default function Signup() {
     const [name, setName] = useState('');
@@ -9,14 +10,20 @@ export default function Signup() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const navigate = useNavigate();
 
-    const handleSignup = (e) => {
+    const handleSignup = async (e) => {
         e.preventDefault();
         if (password !== confirmPassword) {
             alert("Passwords don't match");
             return;
         }
-        // In a real app, you would validate and create the user here.
-        navigate('/dash');
+
+        try {
+            const res = await authService.signup({ full_name: name, email, password });
+            localStorage.setItem('token', res.token);
+            navigate('/dash');
+        } catch (err) {
+            alert(err.message);
+        }
     };
 
     return (

@@ -1,6 +1,6 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Dash from './Dash'
+import Dash from './pages/Dash'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 
