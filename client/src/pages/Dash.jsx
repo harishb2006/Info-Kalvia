@@ -140,7 +140,7 @@ const KalviumAgentDashboard = () => {
         />
 
         {/* 3. AGENTIC CHATBOT INTERFACE */}
-        <Chatbot isChatOpen={isChatOpen} setIsChatOpen={setIsChatOpen} />
+        <Chatbot isChatOpen={isChatOpen} setIsChatOpen={setIsChatOpen} setStudentContextData={setStudentData} />
       </main>
     </div>
   );
