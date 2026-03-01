@@ -6,6 +6,7 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
     ]);
     const [inputText, setInputText] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [pendingActionInfo, setPendingActionInfo] = useState(null);
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -41,7 +42,16 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
             }
 
             const data = await response.json();
-            setMessages((prev) => [...prev, { sender: 'bot', text: data.reply }]);
+
+            setMessages((prev) => [...prev, {
+                sender: 'bot',
+                text: data.reply,
+                confirmation: data.confirmation || null
+            }]);
+
+            if (data.confirmation && data.pendingAction) {
+                setPendingActionInfo(data.pendingAction);
+            }
 
             // If the agent updated the profile, pass the updated profile up the component tree to reflect real-time UI changes
             if (data.updatedProfile && setStudentContextData) {
@@ -55,8 +65,51 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
         }
     };
 
+    const handleActionSend = async (action, index) => {
+        setIsLoading(true);
+        // Remove buttons from the specific message immediately to prevent double-clicks
+        setMessages(prev => prev.map((msg, i) => {
+            if (i === index) {
+                return { ...msg, confirmation: null }; // Clear confirmation block
+            }
+            return msg;
+        }));
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch("http://localhost:5000/api/students/chat", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ action: action, pendingAction: pendingActionInfo }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Action failed.");
+            }
+
+            const data = await response.json();
+
+            setMessages((prev) => [...prev, { sender: 'bot', text: data.reply }]);
+            setPendingActionInfo(null); // Clear pending action state
+
+            if (data.updatedProfile && setStudentContextData) {
+                setStudentContextData(data.updatedProfile);
+            }
+
+        } catch (error) {
+            console.error("Action error:", error);
+            setMessages((prev) => [...prev, { sender: 'bot', text: "Sorry, I encountered an error processing your confirmation." }]);
+            setPendingActionInfo(null);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !isLoading && !pendingActionInfo) {
             handleSendMessage();
         }
     };
@@ -73,10 +126,10 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
     }
 
     return (
-        <div className="fixed bottom-8 right-8 w-[450px] h-[600px] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col z-50 transition-all">
+        <div className="h-full w-full flex flex-col overflow-hidden">
 
             {/* Header */}
-            <div className="p-5 bg-gradient-to-r from-slate-900 to-black text-white flex justify-between items-center rounded-t-2xl">
+            <div className="p-5 bg-gradient-to-r from-slate-900 to-black text-white flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <div className="relative flex h-3 w-3">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -99,9 +152,31 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
                         <div
                             className={`p-4 rounded-2xl text-[15px] leading-relaxed shadow-sm w-fit max-w-[85%] ${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-white border text-slate-700 rounded-bl-sm border-slate-200'}`}
                             style={{ wordBreak: 'break-word' }}
-                        >
-                            {msg.text}
-                        </div>
+                            dangerouslySetInnerHTML={{ __html: msg.text ? msg.text.replace(/\n/g, '<br />') : '' }}
+                        />
+
+                        {/* Render Confirmation Box if present */}
+                        {msg.confirmation && (
+                            <div className="mt-2 p-4 bg-white border border-slate-200 rounded-xl shadow-sm w-full max-w-[90%]">
+                                <h4 className="font-bold text-slate-800 text-sm mb-1">{msg.confirmation.title}</h4>
+                                <p className="text-xs text-slate-600 mb-3">{msg.confirmation.description}</p>
+                                <div className="flex gap-2">
+                                    {msg.confirmation.buttons.map(btn => (
+                                        <button
+                                            key={btn.action}
+                                            onClick={() => handleActionSend(btn.action, idx)}
+                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${btn.style === 'danger' ? 'bg-red-500 hover:bg-red-600 text-white' :
+                                                    btn.style === 'warning' ? 'bg-amber-500 hover:bg-amber-600 text-white' :
+                                                        'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                                                }`}
+                                        >
+                                            {btn.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {msg.sender === 'bot' && idx === messages.length - 1 && dataWasUpdated(msg.text) && (
                             <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider ml-1 mt-1 flex items-center gap-1">
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
@@ -126,19 +201,19 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
 
             {/* Input Area */}
             <div className="p-4 bg-white border-t border-slate-200">
-                <div className="flex bg-slate-100 rounded-full p-1.5 focus-within:ring-2 focus-within:ring-indigo-500 transition-all shadow-inner">
+                <div className={`flex bg-slate-100 rounded-full p-1.5 transition-all shadow-inner ${pendingActionInfo ? 'opacity-50 cursor-not-allowed' : 'focus-within:ring-2 focus-within:ring-indigo-500'}`}>
                     <input
                         type="text"
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Type a message..."
-                        disabled={isLoading}
+                        placeholder={pendingActionInfo ? "Please confirm or cancel above..." : "Type a message..."}
+                        disabled={isLoading || pendingActionInfo !== null}
                         className="flex-1 bg-transparent border-none px-4 py-2 text-[15px] text-slate-800 focus:outline-none disabled:opacity-50"
                     />
                     <button
                         onClick={handleSendMessage}
-                        disabled={isLoading || !inputText.trim()}
+                        disabled={isLoading || !inputText.trim() || pendingActionInfo !== null}
                         className="bg-indigo-600 text-white p-2.5 w-11 h-11 rounded-full text-sm font-bold shadow-md flex items-center justify-center hover:bg-indigo-700 disabled:opacity-50 transition-colors"
                     >
                         <svg className="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
@@ -155,8 +230,9 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
 
 // Simple heuristic to see if the bot text means it updated standard data.
 const dataWasUpdated = (text) => {
+    if (!text) return false;
     const t = text.toLowerCase();
-    return t.includes("update") && (t.includes("success") || t.includes("completed") || t.includes("new state"));
+    return (t.includes("update") || t.includes("delete")) && (t.includes("success") || t.includes("completed") || t.includes("new state") || t.includes("done"));
 }
 
 export default Chatbot;

@@ -64,14 +64,24 @@ export const updateProfileTool = (studentId) => {
 export const deleteApplicationTool = (studentId) => {
     return new DynamicStructuredTool({
         name: "delete_course_application",
-        description: "Deletes a specific course application for the user.",
+        description: "Deletes a specific course application for the user. Ask the user for the course name if they didn't specify one.",
         schema: z.object({
-            applicationId: z.number().describe("The numeric ID of the application to delete. You must get this ID from the get_student_profile tool first.")
+            courseName: z.string().describe("The name of the course application to delete (e.g. 'University of Mysour').")
         }),
-        func: async ({ applicationId }) => {
+        func: async ({ courseName }) => {
             try {
-                await studentModel.deleteApplication(studentId, applicationId);
-                return `Application ID ${applicationId} successfully deleted.`;
+                const profile = await studentModel.getFullProfile(studentId);
+                if (!profile || !profile.applications || profile.applications.length === 0) {
+                    return "You have no active applications to delete.";
+                }
+
+                const app = profile.applications.find(a => a.course.toLowerCase().includes(courseName.toLowerCase()));
+                if (!app) {
+                    return `Could not find an application for course '${courseName}'.`;
+                }
+
+                await studentModel.deleteApplication(studentId, app.applicationId);
+                return `Application for course '${app.course}' successfully deleted.`;
             } catch (error) {
                 console.error("Error in deleteApplicationTool:", error);
                 return `Failed to delete application due to an error: ${error.message}`;
