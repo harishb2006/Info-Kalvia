@@ -11,8 +11,7 @@ export default function Login() {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const res = await authService.login({ email, password });
-            localStorage.setItem('token', res.token);
+            await authService.login({ email, password });
             navigate('/dash');
         } catch (err) {
             alert(err.message);

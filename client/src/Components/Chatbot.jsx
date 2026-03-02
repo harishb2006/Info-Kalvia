@@ -26,13 +26,12 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
         setIsLoading(true);
 
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch("http://localhost:5000/api/students/chat", {
+            const response = await fetch("/api/students/chat", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
+                    "Content-Type": "application/json"
                 },
+                credentials: "include",
                 body: JSON.stringify({ message: userMsg.text }),
             });
 
@@ -76,13 +75,12 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
         }));
 
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch("http://localhost:5000/api/students/chat", {
+            const response = await fetch("/api/students/chat", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
+                    "Content-Type": "application/json"
                 },
+                credentials: "include",
                 body: JSON.stringify({ action: action, pendingAction: pendingActionInfo }),
             });
 

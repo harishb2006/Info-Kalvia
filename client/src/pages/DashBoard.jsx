@@ -23,10 +23,6 @@ const KalviumAgentDashboard = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        if (!authService.isAuthenticated()) {
-          navigate('/login');
-          return;
-        }
         const res = await studentService.getProfile();
         const p = res.profile;
         setStudentData({
@@ -38,7 +34,6 @@ const KalviumAgentDashboard = () => {
         });
       } catch (err) {
         console.error("Failed to load profile", err);
-        authService.logout();
         navigate('/login');
       }
     };

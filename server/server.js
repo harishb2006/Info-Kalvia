@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
+import cookieParser from "cookie-parser";
 import dbWrapper from "./db/index.js";
 import authRoutes from "./routes/authRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
@@ -14,7 +15,11 @@ import cors from "cors";
 const app = express();
 const PORT = process.env.PORT || 5000;
 app.use(express.json());
-app.use(cors()); // Allow cross-origin requests
+app.use(cookieParser());
+app.use(cors({
+   origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"], // support all common ports
+   credentials: true
+}));
 
 /* ---------------------------------------
    Routes
