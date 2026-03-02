@@ -55,6 +55,7 @@ export const signup = async (req, res) => {
 
         res.status(201).json({
             message: "Student registered successfully",
+            token: token,
             user: {
                 id: result.lastID,
                 full_name: newStudent.full_name,
@@ -108,6 +109,7 @@ export const login = async (req, res) => {
 
         res.status(200).json({
             message: "Login successful",
+            token: token,
             user: {
                 id: user.id,
                 full_name: user.full_name,

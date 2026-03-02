@@ -1,6 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { API_BASE_URL } from '../services/api';
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
     const [messages, setMessages] = useState([
         { sender: 'bot', text: "Hello! I'm your AI Profile Assistant. How can I help you manage your student profile?" }
@@ -29,9 +38,7 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
         try {
             const response = await fetch(`${API_BASE_URL}/students/chat`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: getAuthHeaders(),
                 credentials: "include",
                 body: JSON.stringify({ message: userMsg.text }),
             });
@@ -78,9 +85,7 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
         try {
             const response = await fetch(`${API_BASE_URL}/students/chat`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: getAuthHeaders(),
                 credentials: "include",
                 body: JSON.stringify({ action: action, pendingAction: pendingActionInfo }),
             });
