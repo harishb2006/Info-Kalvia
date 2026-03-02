@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { API_BASE_URL } from '../services/api';
 
 const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
     const [messages, setMessages] = useState([
@@ -26,7 +27,7 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
         setIsLoading(true);
 
         try {
-            const response = await fetch("/api/students/chat", {
+            const response = await fetch(`${API_BASE_URL}/students/chat`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -75,7 +76,7 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
         }));
 
         try {
-            const response = await fetch("/api/students/chat", {
+            const response = await fetch(`${API_BASE_URL}/students/chat`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
