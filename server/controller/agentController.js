@@ -1,4 +1,5 @@
 import { ChatGroq } from "@langchain/groq";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { getProfileTool, updateProfileTool, deleteApplicationTool } from "../utils/agentTools.js";
 import studentModel from "../models/studentModel.js";
 
@@ -63,19 +64,50 @@ export const chatWithAgent = async (req, res) => {
             return res.status(400).json({ error: "Message is required." });
         }
 
-        if (!groqApiKey) {
-            console.error("GROQ_API_KEY is missing in environment variables.");
+        const geminiApiKey = process.env.GEMINI_API_KEY;
+
+        if (!groqApiKey && !geminiApiKey) {
+            console.error("Both GROQ_API_KEY and GEMINI_API_KEY are missing in environment variables.");
             return res.status(500).json({ error: "Server configuration error. LLM API key missing." });
         }
 
-        const llm = new ChatGroq({
-            apiKey: groqApiKey,
-            model: "llama-3.1-8b-instant", // Fast and capable of tool calling
-            temperature: 0,
-            maxTokens: 1024,
-        });
+        // Initialize LLM with fallback support
+        let llm;
+        let llmWithTools;
+        let usingFallback = false;
 
-        const llmWithTools = llm.bindTools(tools);
+        // Try to use Groq first
+        if (groqApiKey) {
+            try {
+                llm = new ChatGroq({
+                    apiKey: groqApiKey,
+                    model: "llama-3.1-8b-instant",
+                    temperature: 0,
+                    maxTokens: 1024,
+                });
+                llmWithTools = llm.bindTools(tools);
+            } catch (error) {
+                console.warn("Failed to initialize Groq, will try Gemini fallback:", error.message);
+                llm = null;
+            }
+        }
+
+        // Fallback to Gemini if Groq is not available
+        if (!llm && geminiApiKey) {
+            console.log("Using Gemini as fallback LLM");
+            usingFallback = true;
+            llm = new ChatGoogleGenerativeAI({
+                apiKey: geminiApiKey,
+                model: "gemini-2.5-flash",
+                temperature: 0,
+                maxOutputTokens: 1024,
+            });
+            llmWithTools = llm.bindTools(tools);
+        }
+
+        if (!llm) {
+            return res.status(500).json({ error: "Failed to initialize any LLM service." });
+        }
 
         // Core execution loop
         const messages = [
@@ -117,7 +149,26 @@ CRITICAL RULES:
         let finalReply = "";
 
         // Step 1: LLM decides whether to use a tool
-        const aiMessage = await llmWithTools.invoke(messages);
+        let aiMessage;
+        try {
+            aiMessage = await llmWithTools.invoke(messages);
+        } catch (error) {
+            // If Groq fails during runtime and we haven't tried Gemini yet, fallback
+            if (!usingFallback && geminiApiKey) {
+                console.warn("Groq runtime error, falling back to Gemini:", error.message);
+                usingFallback = true;
+                llm = new ChatGoogleGenerativeAI({
+                    apiKey: geminiApiKey,
+                    model: "gemini-2.5-flash",
+                    temperature: 0,
+                    maxOutputTokens: 1024,
+                });
+                llmWithTools = llm.bindTools(tools);
+                aiMessage = await llmWithTools.invoke(messages);
+            } else {
+                throw error; // No fallback available, propagate error
+            }
+        }
 
         if (aiMessage.tool_calls && aiMessage.tool_calls.length > 0) {
 
@@ -207,7 +258,26 @@ CRITICAL RULES:
             }
 
             // Step 3: Call LLM again with tool results
-            const finalAiMessage = await llmWithTools.invoke(messages);
+            let finalAiMessage;
+            try {
+                finalAiMessage = await llmWithTools.invoke(messages);
+            } catch (error) {
+                // If Groq fails during runtime and we haven't tried Gemini yet, fallback
+                if (!usingFallback && geminiApiKey) {
+                    console.warn("Groq runtime error on second call, falling back to Gemini:", error.message);
+                    usingFallback = true;
+                    llm = new ChatGoogleGenerativeAI({
+                        apiKey: geminiApiKey,
+                        model: "gemini-2.5-flash",
+                        temperature: 0,
+                        maxOutputTokens: 1024,
+                    });
+                    llmWithTools = llm.bindTools(tools);
+                    finalAiMessage = await llmWithTools.invoke(messages);
+                } else {
+                    throw error; // No fallback available, propagate error
+                }
+            }
             finalReply = finalAiMessage.content;
         } else {
             finalReply = aiMessage.content;
