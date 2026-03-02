@@ -19,7 +19,6 @@ export default function Signup() {
 
         try {
             const res = await authService.signup({ full_name: name, email, password });
-            localStorage.setItem('token', res.token);
             navigate('/dash');
         } catch (err) {
             alert(err.message);
