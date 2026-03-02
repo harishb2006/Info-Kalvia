@@ -1,4 +1,4 @@
-const API_BASE_URL = '/api';
+const API_BASE_URL = 'https://info-kalvia.onrender.com/api';
 
 export const authService = {
   signup: async (userData) => {
