@@ -40,7 +40,6 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
             const response = await fetch(`${API_BASE_URL}/students/chat`, {
                 method: "POST",
                 headers: getAuthHeaders(),
-                credentials: "include",
                 body: JSON.stringify({ message: userMsg.text }),
             });
 
@@ -89,7 +88,6 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
             const response = await fetch(`${API_BASE_URL}/students/chat`, {
                 method: "POST",
                 headers: getAuthHeaders(),
-                credentials: "include",
                 body: JSON.stringify({ action: action, pendingAction: pendingActionInfo }),
             });
             console.log(response);
