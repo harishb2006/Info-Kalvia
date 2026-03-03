@@ -32,10 +32,11 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
 
         const userMsg = { sender: 'user', text: inputText };
         setMessages((prev) => [...prev, userMsg]);
-        setInputText("");
-        setIsLoading(true);
+        setInputText(()=>"");
+        setIsLoading(()=>true);
 
         try {
+            console.log("Sending message to server:", userMsg.text);
             const response = await fetch(`${API_BASE_URL}/students/chat`, {
                 method: "POST",
                 headers: getAuthHeaders(),
@@ -45,6 +46,7 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
 
             if (!response.ok) {
                 const errorData = await response.json();
+                console.log(errorData);
                 throw new Error(errorData.error || "Failed to communicate with agent.");
             }
 
@@ -83,15 +85,18 @@ const Chatbot = ({ isChatOpen, setIsChatOpen, setStudentContextData }) => {
         }));
 
         try {
+            console.log("Sending action to server:", action, pendingActionInfo);
             const response = await fetch(`${API_BASE_URL}/students/chat`, {
                 method: "POST",
                 headers: getAuthHeaders(),
                 credentials: "include",
                 body: JSON.stringify({ action: action, pendingAction: pendingActionInfo }),
             });
-
+            console.log(response);
             if (!response.ok) {
-                throw new Error("Action failed.");
+                const errorData = await response.json();
+                console.log(errorData);
+                throw new Error(errorData.error || "Action failed.");
             }
 
             const data = await response.json();
