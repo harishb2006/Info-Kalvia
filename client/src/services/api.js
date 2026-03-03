@@ -16,7 +16,6 @@ export const authService = {
     const response = await fetch(`${API_BASE_URL}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify(userData),
     });
     if (!response.ok) {
@@ -34,7 +33,6 @@ export const authService = {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify(credentials),
     });
     if (!response.ok) {
@@ -52,7 +50,6 @@ export const authService = {
     const response = await fetch(`${API_BASE_URL}/auth/logout`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      credentials: 'include',
     });
     localStorage.removeItem('token');
     return response.json();
@@ -63,8 +60,7 @@ export const studentService = {
   getProfile: async () => {
     const response = await fetch(`${API_BASE_URL}/students/profile`, {
       method: 'GET',
-      headers: getAuthHeaders(),
-      credentials: 'include'
+      headers: getAuthHeaders()
     });
     if (!response.ok) {
       const error = await response.json();
@@ -79,7 +75,6 @@ export const studentService = {
     const response = await fetch(`${API_BASE_URL}/students/profile`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      credentials: 'include',
       body: JSON.stringify(profileData)
     });
     if (!response.ok) {
@@ -92,8 +87,7 @@ export const studentService = {
   deleteApplication: async (applicationId) => {
     const response = await fetch(`${API_BASE_URL}/students/profile/applications/${applicationId}`, {
       method: 'DELETE',
-      headers: getAuthHeaders(),
-      credentials: 'include'
+      headers: getAuthHeaders()
     });
     if (!response.ok) {
       const error = await response.json();

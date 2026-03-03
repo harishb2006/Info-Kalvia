@@ -3,15 +3,12 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET || "kalvia_secret_key";
 
 const authMiddleware = (req, res, next) => {
-    // Check Authorization header first (for cross-origin compatibility)
+    // Check Authorization header
     const authHeader = req.headers.authorization;
     let token = null;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
         token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    } else {
-        // Fallback to cookie for backward compatibility
-        token = req.cookies.token;
     }
 
     if (!token) {

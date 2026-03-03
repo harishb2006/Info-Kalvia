@@ -25,6 +25,7 @@ export const getProfileTool = (studentId) => {
 
 // Tool 2: Update Profile Tool
 export const updateProfileTool = (studentId) => {
+
     return new DynamicStructuredTool({
         name: "update_student_profile",
         description: "Updates the currently logged-in student's profile, education details, or adds a new course application.",
