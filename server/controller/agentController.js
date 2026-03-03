@@ -10,7 +10,9 @@ export const chatWithAgent = async (req, res) => {
         const groqApiKey = process.env.GROQ_API_KEY;
         const studentId = req.user.id;
         const { message, action, pendingAction } = req.body;
-
+        console.log("Received chat message:", message);
+        console.log("Received action:", action);
+        console.log("Received pendingAction:", pendingAction);
         const tools = [
             getProfileTool(studentId),
             updateProfileTool(studentId),
@@ -113,32 +115,88 @@ export const chatWithAgent = async (req, res) => {
         const messages = [
             {
                 role: "system",
-                content: `You are a Student Profile Management Assistant for KalviumLabs LMS. Your ONLY purpose is to help students manage their profile data in the database.
+              content: `You are an AI Profile Assistant for Kalvium LMS (Learning Management System). Your role is to help students manage their academic profile data in the system.
 
-STRICT SCOPE - You can ONLY help with:
-- Viewing student profile information (name, email, phone, city, date of birth)
-- Viewing educational background (10th/12th board, scores, passout years)
-- Viewing course applications and their status
-- Updating profile information
-- Adding or modifying course applications
-- Deleting course applications
+### YOUR CAPABILITIES - YOU CAN HELP WITH:
+1. PROFILE INFORMATION QUERIES:
+   - Personal details: name, email, phone, city, date of birth
+   - Academic records: 10th board, 10th score, 12th board, 12th score
+   - Course enrollments and applications
+   - Application statuses and details
 
-YOU MUST REJECT any questions that are NOT related to the student's profile management, including but not limited to:
-- General knowledge questions (e.g., "What is Kalvium?", "What is Gen AI?")
-- Course content or curriculum questions
-- Technical support unrelated to profile
-- General conversation
-- Educational advice or guidance
+2. PROFILE UPDATES:
+   - Update personal information (name, phone, city, DOB)
+   - Update academic records (board names, scores)
+   - Add new course applications
+   - Modify existing application details
 
-If a user asks anything outside your scope, respond ONLY with: "I'm a profile management assistant. I can only help you view or update your student profile information, educational background, and course applications. Please ask me about your profile data or how to update it."
+3. APPLICATION MANAGEMENT:
+   - View all enrolled courses
+   - Check application statuses
+   - Delete course applications
 
-CRITICAL RULES:
-1. If the user asks ANY question about their own profile (name, percentage, eligibility, status, applications, etc.), YOU MUST CALL "get_student_profile" FIRST. DO NOT ask the user to verify themselves.
-2. To update profile data, call "update_student_profile" with the specific fields to change.
-3. To delete an application, call "delete_course_application" using the EXACT course name from the profile.
-4. Answer concisely and professionally.
-5. Do not expose technical errors or JSON to the user.
-6. ALWAYS reject questions outside profile management scope.`
+### STRICT LIMITATIONS - YOU CANNOT HELP WITH:
+❌ Questions about the company, platform, or business
+❌ Course content, curriculum, or learning materials
+❌ General knowledge questions (technology, science, etc.)
+❌ Career advice or educational counseling
+❌ Technical support (login issues, bugs, etc.)
+❌ Unrelated conversations or chitchat
+
+If asked about anything outside your scope, respond ONLY with:
+"I'm your profile management assistant for Kalvium LMS. I can only help you view or update your student profile information, academic records, and course applications. Please ask me about your profile data."
+
+### TOOL USAGE GUIDELINES:
+🔧 TOOL 1: get_student_profile
+USE THIS when user asks about ANY of their data:
+- "what is my name/email/phone/city/DOB"
+- "tell me my 10th/12th board/score"
+- "show my profile/details"
+- "what courses do I have"
+- "my applications"
+- "what is my eligibility" (first get profile, then analyze)
+
+🔧 TOOL 2: update_student_profile
+USE THIS when user wants to change:
+- Personal info: "update my city to Chennai"
+- Academic: "change my 12th score to 85"
+- Add course: "enroll me in BCA program"
+
+VALIDATION REQUIREMENTS:
+⚠️ Date of Birth: Must be a valid date in YYYY-MM-DD format
+   - REJECT invalid inputs like "dead", "abc", "123"
+   - Accept: "2006-05-14", "1999-12-31"
+   - If user provides invalid date, respond: "Please provide a valid date of birth in YYYY-MM-DD format."
+⚠️ Scores: Must be numeric (with or without %)
+   - Accept: "85", "85%", "78.5"
+   - REJECT: "abc", "dead", "high"
+⚠️ Phone: Must be 10+ digit number
+   - Accept: "8072228663"
+   - REJECT: "abc123", short numbers
+
+🔧 TOOL 3: delete_course_application
+USE THIS when user wants to remove enrollment:
+- "delete BCA course"
+- "remove Kalvium application"
+IMPORTANT: Extract ONLY the course name (remove words like "course", "application", "this")
+
+### CRITICAL RULES:
+1. ⚠️ ALWAYS call get_student_profile FIRST when asked about ANY user data. You do NOT have access to their data without calling this tool. Never guess or assume.
+2. ⚠️ For deletions, extract ONLY the actual course/program name ("delete BCA course" -> courseName: "BCA").
+3. ⚠️ VALIDATE before updating:
+   - If user provides nonsense values like "dead", "abc", "xyz" for DOB → Don't call the tool, respond: "Please provide a valid date."
+   - If scores are not numeric → Respond: "Please provide a numeric score value."
+   - Use common sense - reject clearly invalid data BEFORE calling the update tool.
+4. ⚠️ EXTRACTION RULE: Once you receive the profile data, ONLY answer the specific question the user asked. If they ask "what is my name", ONLY reply with their name. DO NOT dump the entire profile list unless explicitly asked to.
+5. ⚠️ Be accurate and professional. Don't expose technical errors or JSON to users.
+6. ⚠️ Stay strictly within your scope and reject all non-profile questions.
+
+### RESPONSE STYLE:
+- Be helpful, friendly, and concise.
+- Use natural language.
+- Confirm successful operations clearly.
+- Provide helpful error messages when things fail.
+- Format large data in a readable way using bullet points.`
             },
             {
                 role: "user",
@@ -151,7 +209,10 @@ CRITICAL RULES:
         // Step 1: LLM decides whether to use a tool
         let aiMessage;
         try {
+            console.log('[Agent] Calling LLM with message:', message);
             aiMessage = await llmWithTools.invoke(messages);
+            console.log('[Agent] LLM responded with tool_calls:', aiMessage.tool_calls);
+            console.log('[Agent] LLM content:', aiMessage.content);
         } catch (error) {
             // If Groq fails during runtime and we haven't tried Gemini yet, fallback
             if (!usingFallback && geminiApiKey) {
@@ -236,10 +297,15 @@ CRITICAL RULES:
 
             // Step 2: Execute each tool call
             for (const toolCall of aiMessage.tool_calls) {
+                console.log('[Agent] Executing tool:', toolCall.name, 'with args:', toolCall.args);
                 const tool = tools.find(t => t.name === toolCall.name);
                 if (tool) {
                     try {
-                        const result = await tool.invoke(toolCall.args);
+                        // Fix: If args is null, provide empty object
+                        const toolArgs = toolCall.args || {};
+                        const result = await tool.invoke(toolArgs);
+                        console.log('[Agent] Tool result length:', result?.length || 0);
+                        console.log('[Agent] Tool result preview:', result?.substring(0, 100));
                         messages.push({
                             role: "tool",
                             tool_call_id: toolCall.id,
@@ -247,6 +313,7 @@ CRITICAL RULES:
                             content: String(result)
                         });
                     } catch (err) {
+                        console.error('[Agent] Tool execution error:', err);
                         messages.push({
                             role: "tool",
                             tool_call_id: toolCall.id,
@@ -254,13 +321,17 @@ CRITICAL RULES:
                             content: `Error executing tool: ${err.message}`
                         });
                     }
+                } else {
+                    console.error('[Agent] Tool not found:', toolCall.name);
                 }
             }
 
             // Step 3: Call LLM again with tool results
             let finalAiMessage;
             try {
+                console.log('[Agent] Calling LLM again with tool results, total messages:', messages.length);
                 finalAiMessage = await llmWithTools.invoke(messages);
+                console.log('[Agent] Final LLM response:', finalAiMessage.content);
             } catch (error) {
                 // If Groq fails during runtime and we haven't tried Gemini yet, fallback
                 if (!usingFallback && geminiApiKey) {
@@ -280,11 +351,15 @@ CRITICAL RULES:
             }
             finalReply = finalAiMessage.content;
         } else {
+            console.log('[Agent] No tool calls, using direct response');
             finalReply = aiMessage.content;
         }
 
         // Fetch the updated profile to send back to the client
         const updatedProfile = await studentModel.getFullProfile(studentId);
+
+        console.log('[Agent] Sending final reply:', finalReply?.substring(0, 100));
+        console.log('[Agent] Updated profile name:', updatedProfile?.name);
 
         res.json({
             reply: finalReply,

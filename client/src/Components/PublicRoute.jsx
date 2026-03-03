@@ -3,7 +3,12 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 const PublicRoute = ({ children }) => {
-    const { isAuthenticated, loading } = useAuth();
+    const { isAuthenticated, loading, error } = useAuth();
+
+    // If there's an error (like timeout), assume not authenticated and show the page
+    if (error) {
+        return children;
+    }
 
     if (loading) {
         return (

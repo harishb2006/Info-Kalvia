@@ -46,6 +46,33 @@ export const updateProfileTool = (studentId) => {
         }),
         func: async (args) => {
             try {
+                // Validate date_of_birth if provided
+                if (args.date_of_birth) {
+                    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+                    if (!dateRegex.test(args.date_of_birth)) {
+                        // Try to parse it as a date
+                        const date = new Date(args.date_of_birth);
+                        if (isNaN(date.getTime())) {
+                            return `Invalid date format for date of birth. Please provide a valid date in YYYY-MM-DD format (e.g., 2006-05-14).`;
+                        }
+                        // Convert to YYYY-MM-DD format
+                        args.date_of_birth = date.toISOString().split('T')[0];
+                    }
+                }
+
+                // Validate scores if provided (should be numeric)
+                if (args.tenthScore && !/^\d+\.?\d*$/.test(args.tenthScore.replace('%', '').trim())) {
+                    return `Invalid 10th score. Please provide a numeric value (e.g., 85 or 85%).`;
+                }
+                if (args.twelfthScore && !/^\d+\.?\d*$/.test(args.twelfthScore.replace('%', '').trim())) {
+                    return `Invalid 12th score. Please provide a numeric value (e.g., 78 or 78%).`;
+                }
+
+                // Validate phone if provided (should be numeric and reasonable length)
+                if (args.phone && (!/^\d+$/.test(args.phone) || args.phone.length < 10)) {
+                    return `Invalid phone number. Please provide a valid 10-digit phone number.`;
+                }
+
                 // Pass the data down to the model
                 await studentModel.updateProfile(studentId, args);
 
@@ -64,22 +91,33 @@ export const updateProfileTool = (studentId) => {
 export const deleteApplicationTool = (studentId) => {
     return new DynamicStructuredTool({
         name: "delete_course_application",
-        description: "Deletes a specific course application for the user. Ask the user for the course name if they didn't specify one.",
+        description: "Deletes a specific course application for the user. IMPORTANT: Extract ONLY the course/program name, removing filler words like 'course', 'application', 'this', etc.",
         schema: z.object({
-            courseName: z.string().describe("The name of the course application to delete (e.g. 'University of Mysour').")
+            courseName: z.string().describe("The ACTUAL course name ONLY (e.g., 'BCA', 'Kalvium', 'MCA'). Do NOT include words like 'course', 'application', 'this', 'program'.")
         }),
         func: async ({ courseName }) => {
             try {
+                console.log('[deleteApplicationTool] Looking for course:', courseName);
                 const profile = await studentModel.getFullProfile(studentId);
                 if (!profile || !profile.applications || profile.applications.length === 0) {
                     return "You have no active applications to delete.";
                 }
 
-                const app = profile.applications.find(a => a.course.toLowerCase().includes(courseName.toLowerCase()));
+                console.log('[deleteApplicationTool] Available courses:', profile.applications.map(a => a.course).join(', '));
+                
+                // Try exact match first (case-insensitive)
+                let app = profile.applications.find(a => a.course.toLowerCase() === courseName.toLowerCase());
+                
+                // If no exact match, try partial match
                 if (!app) {
-                    return `Could not find an application for course '${courseName}'.`;
+                    app = profile.applications.find(a => a.course.toLowerCase().includes(courseName.toLowerCase()));
+                }
+                
+                if (!app) {
+                    return `Could not find an application for course '${courseName}'. Available courses: ${profile.applications.map(a => a.course).join(', ')}`;
                 }
 
+                console.log('[deleteApplicationTool] Deleting application:', app.applicationId, 'for course:', app.course);
                 await studentModel.deleteApplication(studentId, app.applicationId);
                 return `Application for course '${app.course}' successfully deleted.`;
             } catch (error) {
